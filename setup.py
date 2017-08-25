@@ -7,4 +7,8 @@ setup(name='pyairpal',
       author='Aaron Edwards',
       author_email='pyairpal@ebob9.com',
       license='MIT',
+      install_requires=[
+            'sseclient',
+            'requests'
+      ],
       packages=['pyairpal'])
