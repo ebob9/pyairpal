@@ -33,4 +33,5 @@ MIT
 ## Version
 Version | Changes
 ------- | --------
+**1.0.1**| PIP support
 **1.0.0**| Initial Release
