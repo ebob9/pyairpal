@@ -7,18 +7,25 @@ interface to Airpal, so that automated queries can have the same UAC as interact
 """
 
 import requests
+from requests.packages import urllib3
 import sseclient
 import json
-import urlparse
 import logging
 import io
 from time import sleep
+
+try:
+    import urlparse
+except ImportError:
+    import urllib.parse as urlparse
 
 __author__ = "Aaron Edwards <pyairpal@ebob9.com>"
 __email__ = "pyairpal@ebob9.com"
 
 # Set logging to function name
 logger = logging.getLogger(__name__)
+# Get logging level, use this to bypass logging functions if not set. (Issue #1)
+logger_level = logger.getEffectiveLevel()
 
 
 class Airpal(object):
@@ -103,7 +110,7 @@ class Airpal(object):
         :return: sseclient.Event object
         """
         logger.debug('next_event:')
-        return sseclient.SSEClient.next(self.__sse_client)
+        return next(self.__sse_client)
 
     def wait_for_job(self, uuid, print_status=False):
         """
@@ -227,7 +234,7 @@ class Airpal(object):
             # if the request needs extra headers, add them.
 
             if extraheaders and type(extraheaders) is dict:
-                for key, value in extraheaders.iteritems():
+                for key, value in extraheaders.items():
                     headers[key] = value
 
             cookie = self.__http_session.cookies.get_dict()
@@ -235,7 +242,7 @@ class Airpal(object):
             # disable warnings and verification if requested.
             if not verify:
                 # disable warnings for SSL certs.
-                requests.packages.urllib3.disable_warnings()
+                urllib3.disable_warnings()
 
             logger.debug('url = {0}'.format(url))
 
@@ -243,19 +250,21 @@ class Airpal(object):
             try:
                 if data:
                     # pre request, dump simple JSON debug
-                    if not sensitive:
+                    if not sensitive and (logger_level <= logging.DEBUG and logger_level != logging.NOTSET):
                         logger.debug('\n\tREQUEST: {0} {1}\n\tHEADERS: {2}\n\tCOOKIES: {3}\n\tDATA: {4}\n'
                                      .format(method.upper(), url, headers, cookie, data))
 
-                    response = getattr(self.__http_session, method)(url, data=data, headers=headers, verify=verify, stream=True, timeout=timeout, allow_redirects=False)
+                    response = getattr(self.__http_session, method)(url, data=data, headers=headers, verify=verify,
+                                                                    stream=True, timeout=timeout, allow_redirects=False)
 
                 else:
                     # pre request, dump simple JSON debug
-                    if not sensitive:
+                    if not sensitive and (logger_level <= logging.DEBUG and logger_level != logging.NOTSET):
                         logger.debug('\n\tREQUEST: {0} {1}\n\tHEADERS: {2}\n\tCOOKIES: {3}\n'
                                      .format(method.upper(), url, headers, cookie))
 
-                    response = getattr(self.__http_session, method)(url, headers=headers, verify=verify, stream=True, timeout=timeout, allow_redirects=False)
+                    response = getattr(self.__http_session, method)(url, headers=headers, verify=verify, stream=True,
+                                                                    timeout=timeout, allow_redirects=False)
 
                 # if it's a non-good response, don't accept it - wait and retry
                 if response.status_code not in [requests.codes.ok,
@@ -264,7 +273,7 @@ class Airpal(object):
                                                 requests.codes.moved]:
 
                     # Simple JSON debug
-                    if not sensitive:
+                    if not sensitive and (logger_level <= logging.DEBUG and logger_level != logging.NOTSET):
                         try:
                             logger.debug('RESPONSE HEADERS: {0}\n'.format(json.dumps(
                                 json.loads(str(response.headers)), indent=4)))
@@ -293,7 +302,7 @@ class Airpal(object):
                 else:
 
                     # Simple JSON debug
-                    if not sensitive:
+                    if not sensitive and (logger_level <= logging.DEBUG and logger_level != logging.NOTSET):
                         try:
                             logger.debug('RESPONSE HEADERS: {0}\n'.format(json.dumps(
                                 json.loads(str(response.headers)), indent=4)))
