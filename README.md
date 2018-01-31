@@ -33,7 +33,8 @@ MIT
 ## Version
 Version | Changes
 ------- | --------
-**1.1.1**| Python3 support, Remove PANDAS dependancy, fix issue #1
-**1.0.2**| Fix for missing requirments in PIP support
+**1.1.2**| Fix issue #1, update logging to best practice
+**1.1.1**| Python3 support, Remove PANDAS dependency, fix issue #1
+**1.0.2**| Fix for missing requirements in PIP support
 **1.0.1**| PIP support
 **1.0.0**| Initial Release

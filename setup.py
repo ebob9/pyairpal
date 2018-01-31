@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='pyairpal',
-      version='1.1.1',
+      version='1.1.2',
       description='Python Client/SDK for Airpal',
       url='https://github.com/ebob9/pyairpal',
       author='Aaron Edwards',
