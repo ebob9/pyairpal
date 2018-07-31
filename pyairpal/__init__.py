@@ -127,7 +127,11 @@ class Airpal(object):
 
         while cur_uuid_state not in end_statuses:
             # get the next event
-            cur_event = json.loads(self.next_event().data)
+            try:
+                cur_event = json.loads(self.next_event().data)
+            except Exception as e:
+                logger.debug("DEBUG: Exception occured while loading event json. Message : {0}". format(e))
+
             # see if job is in message
             job = cur_event.get('job')
             if not job:
