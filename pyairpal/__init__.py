@@ -61,9 +61,8 @@ class Airpal(object):
             self.__sse_client = None
         except Exception as e:
             raise ValueError("Unable to parse AirPal URL: {0}.".format(e))
-        logger.debug("DEBUG: Airpal Scheme: {0}, Airpal Server: {1}, Airpal Port: {2}".format(self.__ap_scheme,
-                                                                                              self.__ap_server,
-                                                                                              self.__ap_port))
+        logger.debug("DEBUG: Airpal Scheme: %s, Airpal Server: %s, Airpal Port: %s",
+                     self.__ap_scheme, self.__ap_server, self.__ap_port)
         return
 
     def login(self, username="", password=""):
@@ -112,37 +111,67 @@ class Airpal(object):
         logger.debug('next_event:')
         return next(self.__sse_client)
 
-    def wait_for_job(self, uuid, print_status=False):
+    def wait_for_job(self, uuid, print_status=False, end_status=None, sse_error_halt=False, sse_error_max=20):
         """
         Iterate through subscribed event_stream for UUID until job is completed
         :param uuid: UUID to wait for
         :param print_status: Boolean, if True print status as looping.
+        :param end_status: List of end statuses to look for.
+        :param sse_error_halt: Bool on if SSE errors should cause an exception
+        :param sse_error_max: Maximum number of SSE errors to allow.
         :return: dict containing value from 'job' key of final event.
         """
         logger.debug('wait_for_job:')
         cur_uuid_state = ""
+        sse_error_count = 0
         job = {}
-        cur_event = {}
-        end_statuses = ["FAILED", "FINISHED"]
+
+        if not end_status or not isinstance(end_status, list):
+            end_statuses = ["FAILED", "FINISHED"]
+            logger.debug("No end_status specified, setting end_statuses to %s.", end_statuses)
+        else:
+            end_statuses = end_status
+            logger.debug("Set end_statuses to %s.", end_statuses)
 
         while cur_uuid_state not in end_statuses:
             # get the next event
             try:
                 cur_event = json.loads(self.next_event().data)
-            except Exception as e:
-                logger.debug("DEBUG: Exception occured while loading event json. Message : {0}". format(e))
+            except ValueError as e:
+                # malformed SSE message.
+                logger.info('Malformed SSE message. (%s)', e)
+                if sse_error_halt:
+                    # throw exception
+                    raise SSEInvalidMessageExceeded
+                else:
+                    # increment error counter.
+                    sse_error_count += 1
 
+                    # check if we are over max threshold.
+                    if sse_error_count >= sse_error_max:
+                        logger.debug('Hit max SSE error level: count %d, max %d', sse_error_count, sse_error_max)
+                        raise SSEInvalidMessageExceeded
+                    else:
+                        # continue
+                        if print_status:
+                            print('INVALID_SSE_RECEIVED..')
+                            logger.debug('Continuing through invalid SSE.')
+                            continue
+                        else:
+                            logger.debug('INVALID_SSE_RECEIVED, Continuing..')
+                            continue
+            
             # see if job is in message
             job = cur_event.get('job')
             if not job:
                 # not correct message
-                logging.debug('No JOB in message: {0}'.format(cur_event))
+                logger.debug('No JOB in message: %s', cur_event)
                 continue
             # get UUID
             event_uuid = job.get('uuid')
             if not event_uuid or event_uuid != uuid:
                 # no UUID or UUID for a different job.
-                logging.debug('UUID missing or mismatch event_uuid:{0}, uuid:{1}'.format(event_uuid, uuid))
+                logger.debug('UUID missing or mismatch event_uuid:%s, uuid:%s', event_uuid, uuid)
                 continue
             cur_uuid_state = job.get('state')
             if print_status:
@@ -150,17 +179,18 @@ class Airpal(object):
                 print('{0}..'.format(cur_uuid_state))
             else:
                 # no print, but log for debugging.
-                logging.info('{0}..'.format(cur_uuid_state))
+                logger.debug('%s..', cur_uuid_state)
 
         # loop finished, return current job info.
         return job
 
-    def yield_csv(self, location, fd=False):
+    def yield_csv(self, location, fd=False, raw_response=False):
         """
         Function to yield a .csv file from a location string (PATH of URL)
         :param location: String to PATH of CSV object on AirPal
         :param fd: Boolean, if True, return a File Descriptor-like object instead of content.
-        :return: String or FD-like object if fd=True
+        :param raw_response: Boolean, if True, return raw response instead of content.
+        :return: String or raw response if raw_response=True or FD-like object if fd=True
         """
         logger.debug('yield_csv:')
         status, response = self.rest_call("{0}://{1}:{2}{3}".format(self.__ap_scheme,
@@ -169,7 +199,9 @@ class Airpal(object):
                                                                     location),
                                           "get",
                                           extraheaders={'Accept': "*/*"})
-        if fd:
+        if raw_response:
+            return response
+        elif fd:
             return io.StringIO(response.content.decode('utf8'))
         else:
             return response.content
@@ -188,16 +220,8 @@ class Airpal(object):
                                   "tmpTable": None
                               }, jsondata=True)
 
-    def noop(self):
-        """
-        NOOP function (nothing here!)
-        :return: Always true
-        """
-        logger.debug('noop:')
-        return True
-
-    def rest_call(self, url, method, data=None, jsondata=False, sensitive=False, extraheaders=False, timeout=60, retry=None,
-                  max_retry=30, retry_sleep=10):
+    def rest_call(self, url, method, data=None, jsondata=False, sensitive=False, extraheaders=None, timeout=60,
+                  retry=None, max_retry=30, retry_sleep=10):
         """
         Generic REST call worker function
         :param url: URL for the REST call
@@ -255,8 +279,8 @@ class Airpal(object):
                 if data:
                     # pre request, dump simple JSON debug
                     if not sensitive and (logger_level <= logging.DEBUG and logger_level != logging.NOTSET):
-                        logger.debug('\n\tREQUEST: {0} {1}\n\tHEADERS: {2}\n\tCOOKIES: {3}\n\tDATA: {4}\n'
-                                     .format(method.upper(), url, headers, cookie, data))
+                        logger.debug('\n\tREQUEST: %s %s\n\tHEADERS: %s\n\tCOOKIES: %s\n\tDATA: %s\n',
+                                     method.upper(), url, headers, cookie, data)
 
                     response = getattr(self.__http_session, method)(url, data=data, headers=headers, verify=verify,
                                                                     stream=True, timeout=timeout, allow_redirects=False)
@@ -264,8 +288,8 @@ class Airpal(object):
                 else:
                     # pre request, dump simple JSON debug
                     if not sensitive and (logger_level <= logging.DEBUG and logger_level != logging.NOTSET):
-                        logger.debug('\n\tREQUEST: {0} {1}\n\tHEADERS: {2}\n\tCOOKIES: {3}\n'
-                                     .format(method.upper(), url, headers, cookie))
+                        logger.debug('\n\tREQUEST: %s %s\n\tHEADERS: %s\n\tCOOKIES: %s\n',
+                                     method.upper(), url, headers, cookie)
 
                     response = getattr(self.__http_session, method)(url, headers=headers, verify=verify, stream=True,
                                                                     timeout=timeout, allow_redirects=False)
@@ -279,22 +303,22 @@ class Airpal(object):
                     # Simple JSON debug
                     if not sensitive and (logger_level <= logging.DEBUG and logger_level != logging.NOTSET):
                         try:
-                            logger.debug('RESPONSE HEADERS: {0}\n'.format(json.dumps(
-                                json.loads(str(response.headers)), indent=4)))
+                            logger.debug('RESPONSE HEADERS: %s\n', json.dumps(
+                                json.loads(str(response.headers)), indent=4))
                         except ValueError:
-                            logger.debug('RESPONSE HEADERS: {0}\n'.format(str(response.headers)))
+                            logger.debug('RESPONSE HEADERS: %s\n', str(response.headers))
                         try:
-                            logger.debug('RESPONSE: {0}\n'.format(json.dumps(response.json(), indent=4)))
+                            logger.debug('RESPONSE: %s\n', json.dumps(response.json(), indent=4))
                         except ValueError:
-                            logger.debug('RESPONSE: {0}\n'.format(str(response.text)))
+                            logger.debug('RESPONSE: %s\n', str(response.text))
 
-                    logger.debug("Error, non-200 response received: {0}".format(response.status_code))
+                    logger.debug("Error, non-200 response received: %s", response.status_code)
 
                     if retry:
                         # keep retrying
                         retry_count += 1
                         if retry_count >= max_retry:
-                            logger.info("Max retries of {0} reached.".format(max_retry))
+                            logger.info("Max retries of %s reached.", max_retry)
                             retry = False
                         # wait a bit to see if issue clears.
                         sleep(retry_sleep)
@@ -308,16 +332,16 @@ class Airpal(object):
                     # Simple JSON debug
                     if not sensitive and (logger_level <= logging.DEBUG and logger_level != logging.NOTSET):
                         try:
-                            logger.debug('RESPONSE HEADERS: {0}\n'.format(json.dumps(
-                                json.loads(str(response.headers)), indent=4)))
-                            logger.debug('RESPONSE: {0}\n'.format(json.dumps(response.json(), indent=4)))
+                            logger.debug('RESPONSE HEADERS: %s\n', json.dumps(
+                                json.loads(str(response.headers)), indent=4))
+                            logger.debug('RESPONSE: %s\n', json.dumps(response.json(), indent=4))
                         except ValueError:
-                            logger.debug('RESPONSE HEADERS: {0}\n'.format(str(response.headers)))
-                            logger.debug('RESPONSE: {0}\n'.format(str(response.text)))
+                            logger.debug('RESPONSE HEADERS: %s\n', str(response.headers))
+                            logger.debug('RESPONSE: %s\n', str(response.text))
 
                     # if retries have been done, update log if requested.
                     if retry_count > 0:
-                        logger.debug("Got good response after {0} retries. ".format(retry_count))
+                        logger.debug("Got good response after %s retries. ", retry_count)
 
                     # run once is over, if set.
                     run_once = False
@@ -331,11 +355,27 @@ class Airpal(object):
                     # keep retrying
                     retry_count += 1
                     if retry_count >= max_retry:
-                        logger.info("Max retries of {0} reached.".format(max_retry))
+                        logger.info("Max retries of %s reached.", max_retry)
                         retry = False
                     # wait a bit to see if issue clears.
                     sleep(retry_sleep)
                 else:
                     # run once is over.
-                    run_once = False
+                    # run_once = False
                     return False, None
+
+    @staticmethod
+    def noop():
+        """
+        NOOP function (nothing here!)
+        :return: Always true
+        """
+        logger.debug('noop:')
+        return True
+
+
+class SSEInvalidMessageExceeded(Exception):
+    """
+    Exception thrown when an invalid message is recieved from SSEClient.
+    """
+    pass
