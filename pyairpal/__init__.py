@@ -184,12 +184,13 @@ class Airpal(object):
         # loop finished, return current job info.
         return job
 
-    def yield_csv(self, location, fd=False):
+    def yield_csv(self, location, fd=False, raw_response=False):
         """
         Function to yield a .csv file from a location string (PATH of URL)
         :param location: String to PATH of CSV object on AirPal
-        :param fd: Boolean, if True, return a File Descriptor-like object instead of content.
-        :return: String or FD-like object if fd=True
+	:param fd: Boolean, if True, return a File Descriptor-like object instead of content.
+	:param raw_response: Boolean, if True, return raw response instead of content.
+        :return: String or raw response if raw_response=True or FD-like object if fd=True
         """
         logger.debug('yield_csv:')
         status, response = self.rest_call("{0}://{1}:{2}{3}".format(self.__ap_scheme,
@@ -198,7 +199,9 @@ class Airpal(object):
                                                                     location),
                                           "get",
                                           extraheaders={'Accept': "*/*"})
-        if fd:
+	if raw_response:
+            return response
+        elif fd:
             return io.StringIO(response.content.decode('utf8'))
         else:
             return response.content
