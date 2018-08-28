@@ -184,7 +184,7 @@ class Airpal(object):
         # loop finished, return current job info.
         return job
 
-    def yield_csv(self, location, raw_response=False):
+    def yield_csv(self, location, fd=False, raw_response=False):
         """
         Function to yield a .csv file from a location string (PATH of URL)
         :param location: String to PATH of CSV object on AirPal
