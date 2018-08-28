@@ -188,7 +188,9 @@ class Airpal(object):
         """
         Function to yield a .csv file from a location string (PATH of URL)
         :param location: String to PATH of CSV object on AirPal
-        :return: direct response from get rest call
+	:param fd: Boolean, if True, return a File Descriptor-like object instead of content.
+	:param raw_response: Boolean, if True, return raw response instead of content.
+        :return: String or raw response if raw_response=True or FD-like object if fd=True
         """
         logger.debug('yield_csv:')
         status, response = self.rest_call("{0}://{1}:{2}{3}".format(self.__ap_scheme,
