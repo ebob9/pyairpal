@@ -33,8 +33,9 @@ MIT
 ## Version
 Version | Changes
 ------- | --------
-**1.1.2**| Handling exception while loading next_event() to json #4
-**1.1.1**| Python3 support, Remove PANDAS dependancy, fix issue #1
-**1.0.2**| Fix for missing requirments in PIP support
+**1.1.3**| Update yield_csv() to allow for raw requests response.
+**1.1.2**| Fix issue #1, update logging to best practice, Handling exception while loading next_event() to json #4
+**1.1.1**| Python3 support, Remove PANDAS dependency, fix issue #1
+**1.0.2**| Fix for missing requirements in PIP support
 **1.0.1**| PIP support
 **1.0.0**| Initial Release
