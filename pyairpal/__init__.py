@@ -184,7 +184,7 @@ class Airpal(object):
         # loop finished, return current job info.
         return job
 
-    def yield_csv(self, location):
+    def yield_csv(self, location, raw_response=False):
         """
         Function to yield a .csv file from a location string (PATH of URL)
         :param location: String to PATH of CSV object on AirPal
@@ -197,7 +197,12 @@ class Airpal(object):
                                                                     location),
                                           "get",
                                           extraheaders={'Accept': "*/*"})
-        return response
+	if raw_response:
+            return response
+        elif fd:
+            return io.StringIO(response.content.decode('utf8'))
+        else:
+            return response.content
 
     def execute(self, query):
         """
