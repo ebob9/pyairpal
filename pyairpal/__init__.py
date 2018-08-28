@@ -160,7 +160,7 @@ class Airpal(object):
                         else:
                             logger.debug('INVALID_SSE_RECEIVED, Continuing..')
                             continue
-
+            
             # see if job is in message
             job = cur_event.get('job')
             if not job:
