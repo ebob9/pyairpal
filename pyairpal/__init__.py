@@ -136,7 +136,9 @@ class Airpal(object):
         while cur_uuid_state not in end_statuses:
             # get the next event
             try:
-                cur_event = json.loads(self.next_event().data)
+                next_event_data = self.next_event().data
+                if next_event_data:
+                    cur_event = json.loads(next_event_data)
             except ValueError as e:
                 # malformed SSE message.
                 logger.info('Malformed SSE message. (%s)', e)
