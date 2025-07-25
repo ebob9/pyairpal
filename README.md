@@ -1,5 +1,7 @@
-# PyAirpal
+# DEPRECATED - PyAirpal
 Python Client/SDK for Airpal
+
+[Airpal is deprecated as of May 2021.](https://github.com/airbnb/airpal/blob/master/README.md) Per the [Airpal repo](https://github.com/airbnb/airpal/), functionality and feature work for Airpal has been moved to SQL Lab within [Apache Superset](https://www.github.com/apache/superset). This Python library is no longer maintained.
 
 ## Synopsis
 
